@@ -1,471 +1,137 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Огоньки веры в чудо</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            background: #0a0a1a;
-            color: white;
-            overflow: hidden;
-        }
-
-        #map {
-            height: 100vh;
-            width: 100%;
+        #map { 
+            height: 100vh; 
             background: #1a1a2e;
         }
-
-        .header {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            z-index: 1000;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px 20px;
-            border-radius: 15px;
-            border: 2px solid #FFD700;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+        body { 
+            margin: 0; 
+            font-family: Arial; 
         }
-
-        .header h1 {
-            font-size: 18px;
-            margin-bottom: 8px;
-            color: #FFD700;
-        }
-
-        .stats {
-            font-size: 14px;
-        }
-
-        .fire-count {
-            color: #FFD700;
-            font-weight: bold;
-            font-size: 16px;
-        }
-
-        .instructions {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 12px 20px;
-            border-radius: 10px;
-            border: 1px solid #FFD700;
-            z-index: 1000;
-            font-size: 14px;
-            text-align: center;
-            backdrop-filter: blur(5px);
-        }
-
-        /* Стили для звёздочек */
+        
         .star-icon {
             font-size: 24px;
-            filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
-            animation: gentle-glow 2s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 8px gold);
+            animation: glow 2s infinite;
         }
-
-        @keyframes gentle-glow {
-            0% {
-                filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.6));
-                transform: scale(1);
-            }
-            100% {
-                filter: drop-shadow(0 0 12px rgba(255, 215, 0, 1));
-                transform: scale(1.1);
-            }
+        
+        @keyframes glow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.1); }
         }
-
-        /* Сообщения */
-        .message {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.95);
-            color: #FFD700;
-            padding: 20px 30px;
-            border-radius: 15px;
-            border: 2px solid #FFD700;
-            z-index: 10000;
-            font-size: 16px;
-            text-align: center;
-            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
-            backdrop-filter: blur(10px);
-        }
-
-        .error {
-            border-color: #ff4444;
-            color: #ff4444;
-        }
-
-        .success {
-            border-color: #44ff44;
-            color: #44ff44;
-        }
-
-        .loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: #FFD700;
-            padding: 25px;
-            border-radius: 15px;
-            border: 2px solid #FFD700;
+        
+        .stats {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
             z-index: 1000;
-            font-size: 16px;
+            border: 2px solid gold;
         }
-
-        /* Адаптивность */
-        @media (max-width: 768px) {
-            .header {
-                top: 10px;
-                left: 10px;
-                right: 10px;
-                text-align: center;
-            }
-            
-            .instructions {
-                bottom: 10px;
-                left: 10px;
-                right: 10px;
-                transform: none;
-            }
+        
+        .message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: gold;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            border: 2px solid gold;
         }
     </style>
 </head>
 <body>
-    <!-- Шапка с статистикой -->
-    <div class="header">
-        <h1>✨ Огоньки веры в чудо</h1>
-        <div class="stats">
-            Всего огней: <span class="fire-count" id="fireCount">0</span>
-        </div>
+    <div class="stats">
+        <strong>✨ Огоньки веры</strong><br>
+        Огней: <span id="fireCount">0</span>
     </div>
 
-    <!-- Инструкция -->
-    <div class="instructions">
-        Нажмите на карту в любом месте, чтобы оставить огонёк веры ✨
-    </div>
-
-    <!-- Карта -->
     <div id="map"></div>
 
-    <!-- Подключаем Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script>
-        // Конфигурация
-        const CONFIG = {
-            API_URL: 'https://script.google.com/macros/s/AKfycbxUF6JdqzFvFVsF-YFuweyt_5EKKg4SCGHEbC7qjFTBSHclvr5mVVA5i5Z2HMfUxbA/exec',
-            CACHE_DURATION: 30 * 1000,
-            AUTO_REFRESH: 30 * 1000,
-            INITIAL_VIEW: [55.7558, 37.6173],
-            INITIAL_ZOOM: 3
-        };
-
-        // Глобальные переменные
-        let map;
-        let currentMarkers = [];
-        let fireCount = 0;
-        let lastUpdateTime = 0;
-
-        // Инициализация при загрузке страницы
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeMap();
-            loadFires();
-            setInterval(quickCheckForNewFires, CONFIG.AUTO_REFRESH);
+        // Простая версия - только основы
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxUF6JdqzFvFVsF-YFuweyt_5EKKg4SCGHEbC7qjFTBSHclvr5mVVA5i5Z2HMfUxbA/exec';
+        
+        // Карта
+        const map = L.map('map').setView([55.7558, 37.6173], 3);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+        
+        // Иконка
+        const starIcon = L.divIcon({
+            className: 'star-icon',
+            html: '✨',
+            iconSize: [30, 30]
         });
 
-        // Инициализация карты
-        function initializeMap() {
-            map = L.map('map').setView(CONFIG.INITIAL_VIEW, CONFIG.INITIAL_ZOOM);
-            
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
+        let markers = [];
+        let fireCount = 0;
 
-            map.on('click', function(e) {
-                addFire(e.latlng.lat, e.latlng.lng);
-            });
-        }
+        // Загружаем огни
+        loadFires();
 
-        // Создание иконки звезды
-        function createStarIcon() {
-            return L.divIcon({
-                className: 'star-icon',
-                html: '✨',
-                iconSize: [30, 30],
-                iconAnchor: [15, 15]
-            });
-        }
-
-        // Добавление огонька
-        async function addFire(lat, lng) {
-            // Сразу показываем огонёк локально
-            addMarkerToMap(lat, lng);
-            updateLocalStorage(lat, lng);
-            updateFireCount(fireCount + 1);
+        // Клик по карте
+        map.on('click', async function(e) {
+            const { lat, lng } = e.latlng;
             
-            showMessage("Сохраняем огонёк... ✨");
+            // Сразу показываем огонёк
+            const marker = L.marker([lat, lng], {icon: starIcon}).addTo(map);
+            markers.push(marker);
+            fireCount++;
+            updateCount();
             
+            // Пробуем сохранить
             try {
-                // Пробуем разные форматы данных для Google Apps Script
-                const result = await saveToServer(lat, lng);
-                console.log('Ответ сервера:', result);
-                
-                if (result && result.status === 'success') {
-                    showMessage("Огонёк сохранён! 🌟", 1500, 'success');
-                } else {
-                    // Если не стандартный успех, но ответ есть - считаем успехом
-                    showMessage("Огонёк сохранён! 🌟", 1500, 'success');
-                }
-                
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({lat, lng})
+                });
+                console.log('Сохранено!');
             } catch (error) {
-                console.error('Ошибка сохранения:', error);
-                showMessage("Огонёк добавлен локально 🌟", 2000, 'success');
+                console.log('Ошибка, но огонёк виден');
             }
-        }
+        });
 
-        // Сохранение на сервер - ПРОБУЕМ РАЗНЫЕ ФОРМАТЫ
-        async function saveToServer(lat, lng) {
-            // Формат 1: Простой объект
-            const payload1 = { lat: lat, lng: lng };
-            
-            // Формат 2: С датой и временем
-            const payload2 = {
-                latitude: lat,
-                longitude: lng,
-                timestamp: new Date().toISOString()
-            };
-            
-            // Формат 3: Как массив (для Google Sheets)
-            const payload3 = [[lat, lng, new Date().toISOString()]];
-            
-            // Пробуем все форматы по очереди
-            const payloads = [payload1, payload2, payload3];
-            
-            for (let payload of payloads) {
-                try {
-                    console.log('Пробуем payload:', payload);
-                    
-                    const response = await fetch(CONFIG.API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    const result = await response.text();
-                    console.log('Raw response:', result);
-                    
-                    // Пробуем распарсить JSON
-                    try {
-                        return JSON.parse(result);
-                    } catch {
-                        // Если не JSON, но ответ 200 - считаем успехом
-                        if (response.ok) {
-                            return { status: 'success' };
-                        }
-                    }
-                    
-                } catch (error) {
-                    console.log('Формат не подошел, пробуем следующий...');
-                    continue;
-                }
-            }
-            
-            throw new Error('Все форматы не сработали');
-        }
-
-        // Быстрая проверка новых огоньков
-        async function quickCheckForNewFires() {
-            if (Date.now() - lastUpdateTime < 60 * 1000) return;
-            
-            try {
-                const fires = await loadFromServer();
-                if (fires && fires.length > fireCount) {
-                    displayFires(fires);
-                    saveToCache(fires);
-                }
-            } catch (error) {
-                console.log('Быстрая проверка: нет новых данных');
-            }
-        }
-
-        // Добавление маркера на карту
-        function addMarkerToMap(lat, lng) {
-            const marker = L.marker([lat, lng], { 
-                icon: createStarIcon() 
-            }).addTo(map);
-            currentMarkers.push(marker);
-        }
-
-        // Обновление локального хранилища
-        function updateLocalStorage(lat, lng) {
-            const cachedData = getCachedFires();
-            const fires = cachedData?.fires || [];
-            fires.push({ lat, lng });
-            
-            localStorage.setItem('cachedFires', JSON.stringify({
-                fires: fires,
-                timestamp: Date.now()
-            }));
-        }
-
-        // Загрузка огоньков
+        // Загрузка огней
         async function loadFires() {
-            showLoading(true);
-            
-            const cachedData = getCachedFires();
-            if (cachedData && isCacheValid(cachedData.timestamp)) {
-                displayFires(cachedData.fires);
-                showLoading(false);
-                setTimeout(checkFreshData, 1000);
-                return;
-            }
-            
             try {
-                const fires = await loadFromServer();
-                if (fires && Array.isArray(fires)) {
-                    displayFires(fires);
-                    saveToCache(fires);
-                    lastUpdateTime = Date.now();
-                } else {
-                    throw new Error('Некорректный ответ сервера');
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки:', error);
-                if (cachedData) {
-                    displayFires(cachedData.fires);
-                }
-            }
-            
-            showLoading(false);
-        }
-
-        // Загрузка с сервера с обработкой ошибок
-        async function loadFromServer() {
-            try {
-                const response = await fetch(CONFIG.API_URL + '?action=get&t=' + Date.now());
+                const response = await fetch(API_URL);
+                const fires = await response.json();
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                // Очищаем старые
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = [];
                 
-                const data = await response.json();
+                // Добавляем новые
+                fires.forEach(fire => {
+                    const marker = L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
+                    markers.push(marker);
+                });
                 
-                // Проверяем разные возможные форматы ответа
-                if (Array.isArray(data)) {
-                    return data;
-                } else if (data.data && Array.isArray(data.data)) {
-                    return data.data;
-                } else if (data.fires && Array.isArray(data.fires)) {
-                    return data.fires;
-                } else {
-                    console.warn('Неизвестный формат ответа:', data);
-                    return [];
-                }
+                fireCount = fires.length;
+                updateCount();
                 
             } catch (error) {
-                console.error('Ошибка загрузки с сервера:', error);
-                throw error;
+                console.log('Не удалось загрузить огни');
             }
         }
 
-        // Фоновая проверка свежих данных
-        async function checkFreshData() {
-            try {
-                const freshFires = await loadFromServer();
-                const cachedData = getCachedFires();
-                
-                if (freshFires.length > (cachedData?.fires?.length || 0)) {
-                    displayFires(freshFires);
-                    saveToCache(freshFires);
-                }
-            } catch (error) {
-                // Тихая ошибка
-            }
+        function updateCount() {
+            document.getElementById('fireCount').textContent = fireCount;
         }
 
-        // Вспомогательные функции
-        function getCachedFires() {
-            const cached = localStorage.getItem('cachedFires');
-            return cached ? JSON.parse(cached) : null;
-        }
-
-        function isCacheValid(timestamp) {
-            return Date.now() - timestamp < CONFIG.CACHE_DURATION;
-        }
-
-        function saveToCache(fires) {
-            localStorage.setItem('cachedFires', JSON.stringify({
-                fires: fires,
-                timestamp: Date.now()
-            }));
-        }
-
-        function displayFires(fires) {
-            if (!fires || !Array.isArray(fires)) return;
-            
-            clearMarkers();
-            fires.forEach(fire => {
-                if (fire.lat && fire.lng) {
-                    addMarkerToMap(fire.lat, fire.lng);
-                }
-            });
-            updateFireCount(fires.length);
-        }
-
-        function clearMarkers() {
-            currentMarkers.forEach(marker => map.removeLayer(marker));
-            currentMarkers = [];
-        }
-
-        function updateFireCount(count) {
-            fireCount = count;
-            document.getElementById('fireCount').textContent = count;
-        }
-
-        function showLoading(show) {
-            let loading = document.getElementById('loading');
-            if (show && !loading) {
-                loading = document.createElement('div');
-                loading.id = 'loading';
-                loading.className = 'loading';
-                loading.textContent = 'Загружаем огни... ✨';
-                document.body.appendChild(loading);
-            } else if (!show && loading) {
-                loading.remove();
-            }
-        }
-
-        function showMessage(text, duration = 3000, type = '') {
-            const message = document.createElement('div');
-            message.className = `message ${type}`;
-            message.textContent = text;
-            document.body.appendChild(message);
-            
-            setTimeout(() => {
-                if (message.parentNode) {
-                    message.parentNode.removeChild(message);
-                }
-            }, duration);
-        }
+        // Обновляем каждые 30 секунд
+        setInterval(loadFires, 30000);
     </script>
 </body>
 </html>
