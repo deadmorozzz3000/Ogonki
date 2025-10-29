@@ -1,217 +1,438 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Огоньки веры в чудо</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #map { 
-            height: 100vh; 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #0a0a1a;
+            color: white;
+            overflow: hidden;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
             background: #1a1a2e;
         }
-        body { 
-            margin: 0; 
-            font-family: Arial; 
-        }
-        
-        .star-icon {
-            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.9));
-            text-shadow: 0 0 12px rgba(255, 255, 255, 1);
-            font-size: 24px;
-            animation: gentle-glow 3s ease-in-out infinite;
-        }
-        
-        @keyframes gentle-glow {
-            0% { 
-                filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
-                text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-            }
-            50% { 
-                filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1));
-                text-shadow: 0 0 15px rgba(255, 255, 255, 1);
-            }
-            100% { 
-                filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
-                text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
-            }
-        }
-        
-        .stats {
+
+        .header {
             position: absolute;
             top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
+            left: 15px;
             z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 20px;
+            border-radius: 15px;
             border: 2px solid #FFD700;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #FFD700;
+        }
+
+        .stats {
+            font-size: 14px;
+        }
+
+        .fire-count {
+            color: #FFD700;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 1px solid #FFD700;
+            z-index: 1000;
+            font-size: 14px;
+            text-align: center;
             backdrop-filter: blur(5px);
         }
-        
+
+        /* Стили для звёздочек */
+        .star-icon {
+            font-size: 24px;
+            filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.8));
+            animation: gentle-glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes gentle-glow {
+            0% {
+                filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.6));
+                transform: scale(1);
+            }
+            100% {
+                filter: drop-shadow(0 0 12px rgba(255, 215, 0, 1));
+                transform: scale(1.1);
+            }
+        }
+
+        /* Сообщения */
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            color: #FFD700;
+            padding: 20px 30px;
+            border-radius: 15px;
+            border: 2px solid #FFD700;
+            z-index: 10000;
+            font-size: 16px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
         .loading {
-            position: absolute;
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             background: rgba(0, 0, 0, 0.9);
             color: #FFD700;
-            padding: 20px;
-            border-radius: 10px;
-            z-index: 1000;
+            padding: 25px;
+            border-radius: 15px;
             border: 2px solid #FFD700;
+            z-index: 1000;
+            font-size: 16px;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .header {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                text-align: center;
+            }
+            
+            .instructions {
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+                transform: none;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="stats">
-        <strong>✨ Огоньки веры в чудо</strong><br>
-        Всего огней: <span id="fireCount">0</span>
+    <!-- Шапка с статистикой -->
+    <div class="header">
+        <h1>✨ Огоньки веры в чудо</h1>
+        <div class="stats">
+            Всего огней: <span class="fire-count" id="fireCount">0</span>
+        </div>
     </div>
 
-    <div id="loadingMessage" class="loading" style="display: none;">
-        Загружаем огни... ✨
+    <!-- Инструкция -->
+    <div class="instructions">
+        Нажмите на карту в любом месте, чтобы оставить огонёк веры ✨
     </div>
 
+    <!-- Карта -->
     <div id="map"></div>
 
+    <!-- Подключаем Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <script>
-        // Твой API URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbxUF6JdqzFvFVsF-YFuweyt_5EKKg4SCGHEbC7qjFTBSHclvr5mVVA5i5Z2HMfUxbA/exec';
-        
-        // Инициализация карты - ТЁМНАЯ КАРТА С ЯРКИМИ НАДПИСЯМИ
-        const map = L.map('map').setView([55.7558, 37.6173], 3);
-        
-        // Пробуем разные стили с яркими надписями:
-        
-        // Вариант 1: Тёмная карта с контрастными надписями
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-        
-        // Вариант 2 (запасной): Если первый не подходит - раскомментируй эту строку:
-        // L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
-        //     attribution: '© OpenStreetMap'
-        // }).addTo(map);
+        // Конфигурация - УВЕЛИЧИЛИ СКОРОСТЬ ОБНОВЛЕНИЯ!
+        const CONFIG = {
+            API_URL: 'https://script.google.com/macros/s/AKfycbxUF6JdqzFvFVsF-YFuweyt_5EKKg4SCGHEbC7qjFTBSHclvr5mVVA5i5Z2HMfUxbA/exec',
+            CACHE_DURATION: 30 * 1000, // 30 СЕКУНД вместо 10 минут!
+            AUTO_REFRESH: 30 * 1000,   // Автообновление каждые 30 секунд
+            INITIAL_VIEW: [55.7558, 37.6173],
+            INITIAL_ZOOM: 3
+        };
 
-        // Создаём иконку со звёздочкой
-        const starIcon = L.divIcon({
-            className: 'star-icon',
-            html: '✨',
-            iconSize: [30, 30],
-            iconAnchor: [15, 15]
-        });
-
-        // Храним маркеры отдельно
+        // Глобальные переменные
+        let map;
         let currentMarkers = [];
         let fireCount = 0;
+        let lastUpdateTime = 0;
 
-        // Загружаем огни при старте
-        loadAllFires();
-
-        // Клик по карте - добавляем огонёк
-        map.on('click', function(e) {
-            const { lat, lng } = e.latlng;
-            addGlobalFire(lat, lng);
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            loadFires();
+            
+            // Быстрая проверка новых огоньков каждые 30 секунд
+            setInterval(quickCheckForNewFires, CONFIG.AUTO_REFRESH);
         });
 
-        // Добавление огня в общую базу
-        async function addGlobalFire(lat, lng) {
-            // МГНОВЕННО показываем огонёк
-            const newMarker = L.marker([lat, lng], {icon: starIcon}).addTo(map);
-            currentMarkers.push(newMarker);
+        // Инициализация карты
+        function initializeMap() {
+            map = L.map('map').setView(CONFIG.INITIAL_VIEW, CONFIG.INITIAL_ZOOM);
             
-            fireCount++;
-            updateStats();
+            // Тёмная тема карты
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // Обработчик клика по карте
+            map.on('click', function(e) {
+                addFire(e.latlng.lat, e.latlng.lng);
+            });
+        }
+
+        // Создание иконки звезды
+        function createStarIcon() {
+            return L.divIcon({
+                className: 'star-icon',
+                html: '✨',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+        }
+
+        // Добавление огонька
+        async function addFire(lat, lng) {
+            showMessage("Сохраняем огонёк... ✨");
             
-            // ФОНОВО синхронизируем с сервером
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({lat, lng})
-                });
-                const result = await response.json();
-                console.log('Синхронизировано с сервером:', result.success);
+                // Сохраняем на сервер
+                const result = await saveToServer(lat, lng);
+                
+                if (result && result.success) {
+                    // Добавляем на карту
+                    addMarkerToMap(lat, lng);
+                    
+                    // Обновляем локальное хранилище
+                    updateLocalStorage(lat, lng);
+                    
+                    // Обновляем счётчик
+                    updateFireCount(fireCount + 1);
+                    
+                    showMessage("Огонёк сохранён! 🌟", 1500);
+                    
+                    // Быстро обновляем данные с сервера через 2 секунды
+                    setTimeout(() => {
+                        loadFires();
+                    }, 2000);
+                    
+                } else {
+                    throw new Error('Сервер не подтвердил сохранение');
+                }
                 
             } catch (error) {
-                console.error('Ошибка синхронизации:', error);
+                console.error('Ошибка:', error);
+                showMessage("Ошибка сохранения. Попробуйте ещё раз 📡", 3000);
             }
         }
 
-        // Загрузка всех огней С КЕШИРОВАНИЕМ
-        async function loadAllFires() {
-            // Показываем сообщение о загрузке только при первом открытии
-            if (!localStorage.getItem('cachedFires')) {
-                document.getElementById('loadingMessage').style.display = 'block';
-            }
-            
-            // Пытаемся взять из кеша сначала
-            const cachedFires = localStorage.getItem('cachedFires');
-            const cacheTime = localStorage.getItem('cacheTime');
-            
-            // Если в кеше есть данные младше 10 минут - используем их
-            if (cachedFires && cacheTime && (Date.now() - cacheTime < 10 * 60 * 1000)) {
-                const fires = JSON.parse(cachedFires);
-                showFiresOnMap(fires);
-                console.log('Огни из кеша:', fires.length);
-                document.getElementById('loadingMessage').style.display = 'none';
+        // Быстрая проверка новых огоньков (только если давно не обновляли)
+        async function quickCheckForNewFires() {
+            // Если обновлялись меньше минуты назад - пропускаем
+            if (Date.now() - lastUpdateTime < 60 * 1000) {
                 return;
             }
             
-            // Если нет - грузим с сервера
             try {
-                console.log('Загружаем огни с сервера...');
-                const response = await fetch(API_URL + '?t=' + Date.now());
-                const fires = await response.json();
+                const fires = await loadFromServer();
+                if (fires.length > fireCount) {
+                    // Есть новые огоньки - обновляем карту
+                    displayFires(fires);
+                    saveToCache(fires);
+                    showMessage(`+${fires.length - fireCount} новых огоньков! ✨`, 2000);
+                }
+            } catch (error) {
+                console.log('Быстрая проверка: нет новых данных');
+            }
+        }
+
+        // Сохранение на сервер
+        async function saveToServer(lat, lng) {
+            const response = await fetch(CONFIG.API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ lat, lng })
+            });
+            
+            return await response.json();
+        }
+
+        // Добавление маркера на карту
+        function addMarkerToMap(lat, lng) {
+            const marker = L.marker([lat, lng], { 
+                icon: createStarIcon() 
+            }).addTo(map);
+            
+            currentMarkers.push(marker);
+        }
+
+        // Обновление локального хранилища
+        function updateLocalStorage(lat, lng) {
+            const cachedData = getCachedFires();
+            const fires = cachedData?.fires || [];
+            
+            // Добавляем новый огонёк
+            fires.push({ lat, lng });
+            
+            // Сохраняем обратно
+            localStorage.setItem('cachedFires', JSON.stringify({
+                fires: fires,
+                timestamp: Date.now()
+            }));
+        }
+
+        // Загрузка огоньков
+        async function loadFires() {
+            showLoading(true);
+            
+            // Пробуем загрузить из кеша (но кеш теперь всего на 30 секунд)
+            const cachedData = getCachedFires();
+            if (cachedData && isCacheValid(cachedData.timestamp)) {
+                displayFires(cachedData.fires);
+                showLoading(false);
                 
-                // Сохраняем в кеш
-                localStorage.setItem('cachedFires', JSON.stringify(fires));
-                localStorage.setItem('cacheTime', Date.now());
-                
-                showFiresOnMap(fires);
-                console.log('Огни с сервера:', fires.length);
+                // Фоново всё равно проверяем свежие данные
+                setTimeout(checkFreshData, 1000);
+                return;
+            }
+            
+            // Если кеш устарел - грузим с сервера
+            try {
+                const fires = await loadFromServer();
+                displayFires(fires);
+                saveToCache(fires);
+                lastUpdateTime = Date.now();
             } catch (error) {
                 console.error('Ошибка загрузки:', error);
-                // Если сервер недоступен, показываем кешированные данные даже старые
-                if (cachedFires) {
-                    const fires = JSON.parse(cachedFires);
-                    showFiresOnMap(fires);
-                    console.log('Используем старый кеш из-за ошибки:', fires.length);
+                
+                // Показываем старый кеш если есть (даже если устарел)
+                if (cachedData) {
+                    displayFires(cachedData.fires);
+                    showMessage("Используем кешированные данные", 2000);
+                } else {
+                    showMessage("Не удалось загрузить огни", 3000);
                 }
             }
             
-            document.getElementById('loadingMessage').style.display = 'none';
+            showLoading(false);
         }
 
-        // Функция отображения огней на карте
-        function showFiresOnMap(fires) {
-            // Очищаем только старые маркеры (не те, что добавили в этой сессии)
-            currentMarkers.forEach(marker => {
-                if (map.hasLayer(marker)) {
-                    map.removeLayer(marker);
+        // Фоновая проверка свежих данных
+        async function checkFreshData() {
+            try {
+                const freshFires = await loadFromServer();
+                const cachedData = getCachedFires();
+                
+                if (freshFires.length > (cachedData?.fires?.length || 0)) {
+                    // Нашли новые данные - тихо обновляем
+                    displayFires(freshFires);
+                    saveToCache(freshFires);
+                    console.log('Фоновое обновление: найдены новые огоньки');
                 }
+            } catch (error) {
+                // Тихая ошибка - не показываем пользователю
+            }
+        }
+
+        // Загрузка с сервера
+        async function loadFromServer() {
+            const response = await fetch(CONFIG.API_URL + '?t=' + Date.now());
+            return await response.json();
+        }
+
+        // Получение кешированных данных
+        function getCachedFires() {
+            const cached = localStorage.getItem('cachedFires');
+            return cached ? JSON.parse(cached) : null;
+        }
+
+        // Проверка валидности кеша (теперь всего 30 секунд!)
+        function isCacheValid(timestamp) {
+            return Date.now() - timestamp < CONFIG.CACHE_DURATION;
+        }
+
+        // Сохранение в кеш
+        function saveToCache(fires) {
+            localStorage.setItem('cachedFires', JSON.stringify({
+                fires: fires,
+                timestamp: Date.now()
+            }));
+        }
+
+        // Отображение огоньков на карте
+        function displayFires(fires) {
+            // Очищаем старые маркеры
+            clearMarkers();
+            
+            // Добавляем новые
+            fires.forEach(fire => {
+                addMarkerToMap(fire.lat, fire.lng);
+            });
+            
+            // Обновляем счётчик
+            updateFireCount(fires.length);
+        }
+
+        // Очистка маркеров
+        function clearMarkers() {
+            currentMarkers.forEach(marker => {
+                map.removeLayer(marker);
             });
             currentMarkers = [];
-            
-            // Добавляем огни из сервера
-            fires.forEach(fire => {
-                const marker = L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
-                currentMarkers.push(marker);
-            });
-            
-            fireCount = fires.length;
-            updateStats(fireCount);
         }
 
-        function updateStats(count) {
-            if (count !== undefined) {
-                fireCount = count;
+        // Обновление счётчика
+        function updateFireCount(count) {
+            fireCount = count;
+            document.getElementById('fireCount').textContent = count;
+        }
+
+        // Показать/скрыть загрузку
+        function showLoading(show) {
+            let loading = document.getElementById('loading');
+            
+            if (show && !loading) {
+                loading = document.createElement('div');
+                loading.id = 'loading';
+                loading.className = 'loading';
+                loading.textContent = 'Загружаем огни... ✨';
+                document.body.appendChild(loading);
+            } else if (!show && loading) {
+                loading.remove();
             }
-            document.getElementById('fireCount').textContent = fireCount;
         }
 
-        // Обновляем кеш каждые 10 минут
-        setInterval(loadAllFires, 10 * 60 * 1000);
+        // Показать сообщение
+        function showMessage(text, duration = 3000) {
+            const message = document.createElement('div');
+            message.className = 'message';
+            message.textContent = text;
+            document.body.appendChild(message);
+            
+            setTimeout(() => {
+                if (message.parentNode) {
+                    message.parentNode.removeChild(message);
+                }
+            }, duration);
+        }
     </script>
 </body>
 </html>
