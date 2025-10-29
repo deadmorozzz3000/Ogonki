@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Огни надежды</title>
+    <title>Огоньки веры в чудо</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #map { 
@@ -47,12 +47,29 @@
             border: 1px solid gold;
             backdrop-filter: blur(5px);
         }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: gold;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            border: 1px solid gold;
+        }
     </style>
 </head>
 <body>
     <div class="stats">
-        <strong>✨ Огни надежды</strong><br>
+        <strong>✨ Огоньки веры в чудо</strong><br>
         Всего огней: <span id="fireCount">0</span>
+    </div>
+
+    <div id="loadingMessage" class="loading" style="display: none;">
+        Загружаем огни... ✨
     </div>
 
     <div id="map"></div>
@@ -87,43 +104,94 @@
 
         // Добавление огня в общую базу
         async function addGlobalFire(lat, lng) {
+            // МГНОВЕННО показываем огонёк
+            L.marker([lat, lng], {icon: starIcon}).addTo(map);
+            updateStats();
+            
+            // ФОНОВО синхронизируем с сервером
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     body: JSON.stringify({lat, lng})
                 });
                 const result = await response.json();
+                console.log('Синхронизировано с сервером:', result.success);
                 
-                if (result.success) {
-                    // Показываем огонёк сразу
-                    L.marker([lat, lng], {icon: starIcon}).addTo(map);
-                    updateStats();
-                }
+                // ОБНОВЛЯЕМ КЕШ после добавления нового огня
+                setTimeout(loadAllFires, 1000);
             } catch (error) {
-                console.error('Ошибка:', error);
+                console.error('Ошибка синхронизации:', error);
             }
         }
 
-        // Загрузка всех огней
+        // Загрузка всех огней С КЕШИРОВАНИЕМ
         async function loadAllFires() {
+            // Показываем сообщение о загрузке только при первом открытии
+            if (!localStorage.getItem('cachedFires')) {
+                document.getElementById('loadingMessage').style.display = 'block';
+            }
+            
+            // Пытаемся взять из кеша сначала
+            const cachedFires = localStorage.getItem('cachedFires');
+            const cacheTime = localStorage.getItem('cacheTime');
+            
+            // Если в кеше есть данные младше 10 минут - используем их
+            if (cachedFires && cacheTime && (Date.now() - cacheTime < 10 * 60 * 1000)) {
+                const fires = JSON.parse(cachedFires);
+                showFiresOnMap(fires);
+                console.log('Огни из кеша:', fires.length);
+                document.getElementById('loadingMessage').style.display = 'none';
+                return;
+            }
+            
+            // Если нет - грузим с сервера
             try {
-                const response = await fetch(API_URL);
+                console.log('Загружаем огни с сервера...');
+                const response = await fetch(API_URL + '?t=' + Date.now()); // Добавляем timestamp чтобы избежать кеша браузера
                 const fires = await response.json();
                 
-                fires.forEach(fire => {
-                    L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
-                });
+                // Сохраняем в кеш
+                localStorage.setItem('cachedFires', JSON.stringify(fires));
+                localStorage.setItem('cacheTime', Date.now());
                 
-                updateStats(fires.length);
-                console.log('Загружено огней:', fires.length);
+                showFiresOnMap(fires);
+                console.log('Огни с сервера:', fires.length);
             } catch (error) {
                 console.error('Ошибка загрузки:', error);
+                // Если сервер недоступен, показываем кешированные данные даже старые
+                if (cachedFires) {
+                    const fires = JSON.parse(cachedFires);
+                    showFiresOnMap(fires);
+                    console.log('Используем старый кеш из-за ошибки:', fires.length);
+                }
             }
+            
+            document.getElementById('loadingMessage').style.display = 'none';
+        }
+
+        // Функция отображения огней на карте
+        function showFiresOnMap(fires) {
+            // Очищаем старые огни
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            // Добавляем новые
+            fires.forEach(fire => {
+                L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
+            });
+            
+            updateStats(fires.length);
         }
 
         function updateStats(count) {
-            document.getElementById('fireCount').textContent = count || '...';
+            document.getElementById('fireCount').textContent = count || '0';
         }
+
+        // Обновляем кеш каждые 10 минут
+        setInterval(loadAllFires, 10 * 60 * 1000);
     </script>
 </body>
 </html>
