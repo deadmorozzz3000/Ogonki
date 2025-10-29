@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Огни надежды</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { 
+            height: 100vh; 
+            background: #1a1a2e;
+        }
+        body { 
+            margin: 0; 
+            font-family: Arial; 
+        }
+        
+        .star-icon {
+            filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6));
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+            font-size: 20px;
+            animation: gentle-glow 4s ease-in-out infinite;
+        }
+        
+        @keyframes gentle-glow {
+            0% { 
+                filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.4));
+                text-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
+            }
+            50% { 
+                filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
+                text-shadow: 0 0 5px rgba(255, 255, 255, 0.9);
+            }
+            100% { 
+                filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.4));
+                text-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
+            }
+        }
+        
+        .stats {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 1000;
+            border: 1px solid gold;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="stats">
+        <strong>✨ Огни надежды</strong><br>
+        Всего огней: <span id="fireCount">0</span>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Твой API URL
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxUF6JdqzFvFVsF-YFuweyt_5EKKg4SCGHEbC7qjFTBSHclvr5mVVA5i5Z2HMfUxbA/exec';
+        
+        // Инициализация карты
+        const map = L.map('map').setView([55.7558, 37.6173], 3);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Создаём иконку со звёздочкой
+        const starIcon = L.divIcon({
+            className: 'star-icon',
+            html: '✨',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+
+        // Загружаем огни при старте
+        loadAllFires();
+
+        // Клик по карте - добавляем огонёк
+        map.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            addGlobalFire(lat, lng);
+        });
+
+        // Добавление огня в общую базу
+        async function addGlobalFire(lat, lng) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({lat, lng})
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Показываем огонёк сразу
+                    L.marker([lat, lng], {icon: starIcon}).addTo(map);
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+            }
+        }
+
+        // Загрузка всех огней
+        async function loadAllFires() {
+            try {
+                const response = await fetch(API_URL);
+                const fires = await response.json();
+                
+                fires.forEach(fire => {
+                    L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
+                });
+                
+                updateStats(fires.length);
+                console.log('Загружено огней:', fires.length);
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+            }
+        }
+
+        function updateStats(count) {
+            document.getElementById('fireCount').textContent = count || '...';
+        }
+    </script>
+</body>
+</html>
