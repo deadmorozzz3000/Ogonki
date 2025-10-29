@@ -15,7 +15,7 @@
         
         .star-icon {
             filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6));
-            text-shadow: 0 0 4px rgba(255, 255, 255, 0.8));
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
             font-size: 20px;
             animation: gentle-glow 4s ease-in-out infinite;
         }
@@ -60,6 +60,33 @@
             z-index: 1000;
             border: 1px solid gold;
         }
+        
+        /* Стили для сообщения о задержке */
+        #cooldownMessage {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 215, 0, 0.95);
+            color: #333;
+            padding: 12px 24px;
+            border-radius: 25px;
+            z-index: 10000;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            border: 2px solid gold;
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(0); opacity: 1; }
+            to { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -79,6 +106,17 @@
         // Твой API URL
         const API_URL = 'https://script.google.com/macros/s/AKfycbxUF6JdqzFvFVsF-YFuweyt_5EKKg4SCGHEbC7qjFTBSHclvr5mVVA5i5Z2HMfUxbA/exec';
         
+        // НАСТРОЙКИ ЗАДЕРЖКИ
+        let lastClickTime = 0;
+        const CLICK_DELAY = 60000; // 1 минута в миллисекундах
+        let userId = localStorage.getItem('userFireId');
+
+        // Создаем уникальный ID для этого браузера, если его нет
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('userFireId', userId);
+        }
+
         // Инициализация карты
         const map = L.map('map').setView([55.7558, 37.6173], 3);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -100,11 +138,46 @@
         // Загружаем огни при старте
         loadAllFires();
 
-        // Клик по карте - добавляем огонёк
+        // Клик по карте - добавляем огонёк С ПРОВЕРКОЙ ЗАДЕРЖКИ
         map.on('click', function(e) {
+            const now = Date.now();
+            
+            // Проверяем задержку только для этого пользователя
+            if (now - lastClickTime < CLICK_DELAY) {
+                const secondsLeft = Math.ceil((CLICK_DELAY - (now - lastClickTime)) / 1000);
+                showCooldownMessage(secondsLeft);
+                return;
+            }
+            
+            lastClickTime = now;
             const { lat, lng } = e.latlng;
             addGlobalFire(lat, lng);
         });
+
+        // Функция красивого сообщения о задержке
+        function showCooldownMessage(seconds) {
+            // Создаем или находим сообщение
+            let msg = document.getElementById('cooldownMessage');
+            if (!msg) {
+                msg = document.createElement('div');
+                msg.id = 'cooldownMessage';
+                document.body.appendChild(msg);
+            }
+            
+            msg.innerHTML = `⏳ Подожди ${seconds} сек. перед следующим огоньком ✨`;
+            msg.style.display = 'block';
+            
+            // Авто-исчезновение через 3 секунды
+            setTimeout(() => {
+                if (msg.parentNode) {
+                    msg.style.animation = 'slideUp 0.3s ease-in forwards';
+                    setTimeout(() => {
+                        msg.style.display = 'none';
+                        msg.style.animation = '';
+                    }, 300);
+                }
+            }, 3000);
+        }
 
         // Добавление огня в общую базу
         async function addGlobalFire(lat, lng) {
@@ -120,12 +193,17 @@
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    body: JSON.stringify({lat, lng})
+                    body: JSON.stringify({
+                        lat, 
+                        lng, 
+                        userId,  // передаем ID пользователя
+                        timestamp: Date.now()
+                    })
                 });
                 const result = await response.json();
                 console.log('Синхронизировано с сервером:', result.success);
                 
-                // ОБНОВЛЯЕМ КЕШ после добавления нового огня (без перезагрузки всех маркеров)
+                // ОБНОВЛЯЕМ КЕШ после добавления нового огня
                 updateCache();
             } catch (error) {
                 console.error('Ошибка синхронизации:', error);
@@ -220,7 +298,7 @@
             document.getElementById('fireCount').textContent = fireCount;
         }
 
-        // Обновляем кеш каждые 2 минуты (увеличили частоту)
+        // Обновляем кеш каждые 2 минуты
         setInterval(updateCache, 2 * 60 * 1000);
     </script>
 </body>
