@@ -15,7 +15,7 @@
         
         .star-icon {
             filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6));
-            text-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.8));
             font-size: 20px;
             animation: gentle-glow 4s ease-in-out infinite;
         }
@@ -93,6 +93,10 @@
             iconAnchor: [12, 12]
         });
 
+        // Хранилище для маркеров
+        const markers = [];
+        let fireCount = 0;
+
         // Загружаем огни при старте
         loadAllFires();
 
@@ -105,7 +109,11 @@
         // Добавление огня в общую базу
         async function addGlobalFire(lat, lng) {
             // МГНОВЕННО показываем огонёк
-            L.marker([lat, lng], {icon: starIcon}).addTo(map);
+            const marker = L.marker([lat, lng], {icon: starIcon}).addTo(map);
+            markers.push(marker);
+            
+            // Обновляем счетчик
+            fireCount++;
             updateStats();
             
             // ФОНОВО синхронизируем с сервером
@@ -117,10 +125,26 @@
                 const result = await response.json();
                 console.log('Синхронизировано с сервером:', result.success);
                 
-                // ОБНОВЛЯЕМ КЕШ после добавления нового огня
-                setTimeout(loadAllFires, 1000);
+                // ОБНОВЛЯЕМ КЕШ после добавления нового огня (без перезагрузки всех маркеров)
+                updateCache();
             } catch (error) {
                 console.error('Ошибка синхронизации:', error);
+            }
+        }
+
+        // Обновление кеша без перерисовки карты
+        async function updateCache() {
+            try {
+                const response = await fetch(API_URL + '?t=' + Date.now());
+                const fires = await response.json();
+                
+                // Сохраняем в кеш
+                localStorage.setItem('cachedFires', JSON.stringify(fires));
+                localStorage.setItem('cacheTime', Date.now());
+                
+                console.log('Кеш обновлен:', fires.length);
+            } catch (error) {
+                console.error('Ошибка обновления кеша:', error);
             }
         }
 
@@ -135,8 +159,8 @@
             const cachedFires = localStorage.getItem('cachedFires');
             const cacheTime = localStorage.getItem('cacheTime');
             
-            // Если в кеше есть данные младше 10 минут - используем их
-            if (cachedFires && cacheTime && (Date.now() - cacheTime < 10 * 60 * 1000)) {
+            // Если в кеше есть данные младше 2 минут - используем их
+            if (cachedFires && cacheTime && (Date.now() - cacheTime < 2 * 60 * 1000)) {
                 const fires = JSON.parse(cachedFires);
                 showFiresOnMap(fires);
                 console.log('Огни из кеша:', fires.length);
@@ -147,7 +171,7 @@
             // Если нет - грузим с сервера
             try {
                 console.log('Загружаем огни с сервера...');
-                const response = await fetch(API_URL + '?t=' + Date.now()); // Добавляем timestamp чтобы избежать кеша браузера
+                const response = await fetch(API_URL + '?t=' + Date.now());
                 const fires = await response.json();
                 
                 // Сохраняем в кеш
@@ -172,26 +196,32 @@
         // Функция отображения огней на карте
         function showFiresOnMap(fires) {
             // Очищаем старые огни
-            map.eachLayer(layer => {
-                if (layer instanceof L.Marker) {
-                    map.removeLayer(layer);
-                }
-            });
+            clearMarkers();
             
             // Добавляем новые
             fires.forEach(fire => {
-                L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
+                const marker = L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
+                markers.push(marker);
             });
             
-            updateStats(fires.length);
+            fireCount = fires.length;
+            updateStats();
         }
 
-        function updateStats(count) {
-            document.getElementById('fireCount').textContent = count || '0';
+        // Функция очистки маркеров
+        function clearMarkers() {
+            markers.forEach(marker => {
+                map.removeLayer(marker);
+            });
+            markers.length = 0;
         }
 
-        // Обновляем кеш каждые 10 минут
-        setInterval(loadAllFires, 10 * 60 * 1000);
+        function updateStats() {
+            document.getElementById('fireCount').textContent = fireCount;
+        }
+
+        // Обновляем кеш каждые 2 минуты (увеличили частоту)
+        setInterval(updateCache, 2 * 60 * 1000);
     </script>
 </body>
 </html>
