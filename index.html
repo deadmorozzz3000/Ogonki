@@ -14,24 +14,24 @@
         }
         
         .star-icon {
-            filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6));
-            text-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
-            font-size: 20px;
-            animation: gentle-glow 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.9));
+            text-shadow: 0 0 12px rgba(255, 255, 255, 1);
+            font-size: 24px;
+            animation: gentle-glow 3s ease-in-out infinite;
         }
         
         @keyframes gentle-glow {
             0% { 
-                filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.4));
-                text-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
+                filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
+                text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
             }
             50% { 
-                filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
-                text-shadow: 0 0 5px rgba(255, 255, 255, 0.9);
+                filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1));
+                text-shadow: 0 0 15px rgba(255, 255, 255, 1);
             }
             100% { 
-                filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.4));
-                text-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
+                filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.7));
+                text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
             }
         }
         
@@ -39,12 +39,12 @@
             position: absolute;
             top: 15px;
             right: 15px;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 15px;
             border-radius: 10px;
             z-index: 1000;
-            border: 1px solid gold;
+            border: 2px solid #FFD700;
             backdrop-filter: blur(5px);
         }
         
@@ -53,12 +53,12 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: gold;
+            background: rgba(0, 0, 0, 0.9);
+            color: #FFD700;
             padding: 20px;
             border-radius: 10px;
             z-index: 1000;
-            border: 1px solid gold;
+            border: 2px solid #FFD700;
         }
     </style>
 </head>
@@ -79,19 +79,32 @@
         // Твой API URL
         const API_URL = 'https://script.google.com/macros/s/AKfycbxUF6JdqzFvFVsF-YFuweyt_5EKKg4SCGHEbC7qjFTBSHclvr5mVVA5i5Z2HMfUxbA/exec';
         
-        // Инициализация карты
+        // Инициализация карты - ТЁМНАЯ КАРТА С ЯРКИМИ НАДПИСЯМИ
         const map = L.map('map').setView([55.7558, 37.6173], 3);
+        
+        // Пробуем разные стили с яркими надписями:
+        
+        // Вариант 1: Тёмная карта с контрастными надписями
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap'
         }).addTo(map);
+        
+        // Вариант 2 (запасной): Если первый не подходит - раскомментируй эту строку:
+        // L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+        //     attribution: '© OpenStreetMap'
+        // }).addTo(map);
 
         // Создаём иконку со звёздочкой
         const starIcon = L.divIcon({
             className: 'star-icon',
             html: '✨',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
         });
+
+        // Храним маркеры отдельно
+        let currentMarkers = [];
+        let fireCount = 0;
 
         // Загружаем огни при старте
         loadAllFires();
@@ -105,7 +118,10 @@
         // Добавление огня в общую базу
         async function addGlobalFire(lat, lng) {
             // МГНОВЕННО показываем огонёк
-            L.marker([lat, lng], {icon: starIcon}).addTo(map);
+            const newMarker = L.marker([lat, lng], {icon: starIcon}).addTo(map);
+            currentMarkers.push(newMarker);
+            
+            fireCount++;
             updateStats();
             
             // ФОНОВО синхронизируем с сервером
@@ -117,8 +133,6 @@
                 const result = await response.json();
                 console.log('Синхронизировано с сервером:', result.success);
                 
-                // ОБНОВЛЯЕМ КЕШ после добавления нового огня
-                setTimeout(loadAllFires, 1000);
             } catch (error) {
                 console.error('Ошибка синхронизации:', error);
             }
@@ -147,7 +161,7 @@
             // Если нет - грузим с сервера
             try {
                 console.log('Загружаем огни с сервера...');
-                const response = await fetch(API_URL + '?t=' + Date.now()); // Добавляем timestamp чтобы избежать кеша браузера
+                const response = await fetch(API_URL + '?t=' + Date.now());
                 const fires = await response.json();
                 
                 // Сохраняем в кеш
@@ -171,23 +185,29 @@
 
         // Функция отображения огней на карте
         function showFiresOnMap(fires) {
-            // Очищаем старые огни
-            map.eachLayer(layer => {
-                if (layer instanceof L.Marker) {
-                    map.removeLayer(layer);
+            // Очищаем только старые маркеры (не те, что добавили в этой сессии)
+            currentMarkers.forEach(marker => {
+                if (map.hasLayer(marker)) {
+                    map.removeLayer(marker);
                 }
             });
+            currentMarkers = [];
             
-            // Добавляем новые
+            // Добавляем огни из сервера
             fires.forEach(fire => {
-                L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
+                const marker = L.marker([fire.lat, fire.lng], {icon: starIcon}).addTo(map);
+                currentMarkers.push(marker);
             });
             
-            updateStats(fires.length);
+            fireCount = fires.length;
+            updateStats(fireCount);
         }
 
         function updateStats(count) {
-            document.getElementById('fireCount').textContent = count || '0';
+            if (count !== undefined) {
+                fireCount = count;
+            }
+            document.getElementById('fireCount').textContent = fireCount;
         }
 
         // Обновляем кеш каждые 10 минут
